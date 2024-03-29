@@ -15,4 +15,13 @@ if (is_qoddi) {
     useUnifiedTopology: true,
   });
 }
+
+database.connect(err => {
+	if (err) {
+	  console.error('Connection error:', err);
+	} else {
+	  console.log('Connected to MongoDB');
+	}
+  });
+  
 module.exports = database;
