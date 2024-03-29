@@ -1,15 +1,18 @@
-const is_heroku = process.env.IS_HEROKU || false;
-
-const dbConfigHeroku = "mysql://b1ab7fb2ee03bc:2a484a2d@us-cdbr-east-03.cleardb.com/heroku_3d208ad4bd6f421";
-
-const dbConfigLocal = "mysql://root:Password@localhost/lab_example";
-
-if (is_heroku) {
-	var databaseConnectionString = dbConfigHeroku;
+const MongoClient = require("mongodb").MongoClient;
+const is_qoddi = process.env.IS_QODDI || false;
+const qoddiURI =
+  "mongodb+srv://theMongoAdmin:accidentalLoginSteps@cluster0.4ulcc.mongodb.net/myFirstDa tabase?retryWrites=true&w=majority";
+const localURI =
+  "mongodb://127.0.0.1/?authSource=admin&retryWrites=true&w=majority";
+if (is_qoddi) {
+  var database = new MongoClient(qoddiURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+} else {
+  var database = new MongoClient(localURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
 }
-else {
-	var databaseConnectionString = dbConfigLocal;
-}
-
-module.exports = databaseConnectionString;
-		
+module.exports = database;
