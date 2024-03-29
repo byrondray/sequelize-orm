@@ -1,5 +1,7 @@
 const router = require("express").Router();
 const database = include("databaseConnection");
+const Joi = require("joi");
+const ObjectId = require("mongodb").ObjectId;
 //const dbModel = include('databaseAccessLayer');
 //const dbModel = include('staticData');
 
@@ -10,6 +12,10 @@ const crypto = require("crypto");
 const { v4: uuid } = require("uuid");
 
 const passwordPepper = "SeCretPeppa4MySal+";
+const idSchema = Joi.string()
+  .length(24)
+  .regex(/^[0-9a-fA-F]{24}$/)
+  .required();
 
 router.get("/", async (req, res) => {
   console.log("page hit");
@@ -36,17 +42,19 @@ router.get("/", async (req, res) => {
 router.get("/pets", async (req, res) => {
   console.log("page hit");
   try {
-    const pets = await petModel.findAll({ attributes: ["name"] }); //{where: {web_user_id: 1}}
-    if (pets === null) {
-      res.render("error", { message: "Error connecting to MySQL" });
-      console.log("Error connecting to userModel");
+    const db = await database.db("lab_example"); // Make sure to connect to the database
+    const petsCollection = db.collection("pets");
+    const pets = await petsCollection
+      .find({}, { projection: { name: 1 } })
+      .toArray();
+
+    if (!pets || pets.length === 0) {
+      res.render("error", { message: "No pets found" });
     } else {
-      console.log(pets);
       res.render("pets", { allPets: pets });
     }
   } catch (ex) {
-    res.render("error", { message: "Error connecting to MySQL" });
-    console.log("Error connecting to MySQL");
+    res.render("error", { message: "Error fetching pets" });
     console.log(ex);
   }
 });
@@ -54,22 +62,26 @@ router.get("/pets", async (req, res) => {
 router.get("/showPets", async (req, res) => {
   console.log("page hit");
   try {
-    let userId = req.query.id;
-    const user = await userModel.findByPk(userId);
-    if (user === null) {
-      res.render("error", { message: "Error connecting to MySQL" });
-      console.log("Error connecting to userModel");
-    } else {
-      let pets = await user.getPets();
-      console.log(pets);
-      let owner = await pets[0].getOwner();
-      console.log(owner);
+    const { error, value: userId } = idSchema.validate(req.query.id);
+    if (error) {
+      throw new Error(`Invalid user ID: ${error.details[0].message}`);
+    }
 
+    const db = await database.db("lab_example");
+    const usersCollection = db.collection("users");
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+
+    if (!user) {
+      res.render("error", { message: "User not found" });
+    } else {
+      const petsCollection = db.collection("pets");
+      const pets = await petsCollection
+        .find({ ownerId: new ObjectId(userId) })
+        .toArray();
       res.render("pets", { allPets: pets });
     }
   } catch (ex) {
-    res.render("error", { message: "Error connecting to MySQL" });
-    console.log("Error connecting to MySQL");
+    res.render("error", { message: ex.message || "Error fetching pets" });
     console.log(ex);
   }
 });
@@ -78,20 +90,39 @@ router.get("/deleteUser", async (req, res) => {
   try {
     console.log("delete user");
 
-    let userId = req.query.id;
-    if (userId) {
-      console.log("userId: " + userId);
-      let deleteUser = await userModel.findByPk(userId);
-      console.log("deleteUser: ");
-      console.log(deleteUser);
-      if (deleteUser !== null) {
-        await deleteUser.destroy();
-      }
+    // Check if 'id' parameter exists
+    const userId = req.query.id;
+    if (!userId) {
+      throw new Error("No user ID provided.");
     }
+
+    // Define your Joi schema for the user ID
+    const idSchema = Joi.string()
+      .length(24)
+      .regex(/^[0-9a-fA-F]{24}$/)
+      .required();
+
+    // Validate the 'id' URL parameter
+    const { error } = idSchema.validate(userId);
+    if (error) {
+      throw new Error(`Invalid user ID: ${error.details[0].message}`);
+    }
+
+    // Connect to the database and delete the user
+    const db = await database.db("lab_example");
+    const userCollection = db.collection("users");
+
+    const deleteResult = await userCollection.deleteOne({
+      _id: new ObjectId(userId),
+    });
+    if (deleteResult.deletedCount === 0) {
+      throw new Error("User not found or already deleted");
+    }
+
+    console.log(`User with ID ${userId} deleted`);
     res.redirect("/");
   } catch (ex) {
-    res.render("error", { message: "Error connecting to MySQL" });
-    console.log("Error connecting to MySQL");
+    res.render("error", { message: ex.message || "Error deleting user" });
     console.log(ex);
   }
 });
@@ -100,26 +131,40 @@ router.post("/addUser", async (req, res) => {
   try {
     console.log("form submit");
 
-    const password_salt = crypto.createHash("sha512");
+    // Validate the user input with Joi
+    const userSchema = Joi.object({
+      first_name: Joi.string().required(),
+      last_name: Joi.string().required(),
+      email: Joi.string().email().required(),
+      password: Joi.string().required(), // Add additional password requirements as needed
+    });
 
-    password_salt.update(uuid());
+    const validationResult = userSchema.validate(req.body);
+    if (validationResult.error) {
+      throw validationResult.error;
+    }
 
-    const password_hash = crypto.createHash("sha512");
+    // Continue with password creation only after validation passes
+    const passwordSalt = crypto.randomBytes(16).toString("hex"); // Create a new random salt for each user
+    const passwordHash = crypto.createHash("sha512");
+    passwordHash.update(req.body.password + passwordPepper + passwordSalt); // Combine and hash the password with the salt and pepper
 
-    password_hash.update(req.body.password + passwordPepper + password_salt);
+    // Connect to the database and insert the new user
+    const db = await database.db("lab_example");
+    const userCollection = db.collection("users");
 
-    let newUser = userModel.build({
+    await userCollection.insertOne({
       first_name: req.body.first_name,
       last_name: req.body.last_name,
       email: req.body.email,
-      password_salt: password_salt.digest("hex"),
-      password_hash: password_hash.digest("hex"),
+      password_salt: passwordSalt,
+      password_hash: passwordHash.digest("hex"),
     });
-    await newUser.save();
-    res.redirect("/");
+
+    res.redirect("/"); // Redirect to the home page or to a success page
   } catch (ex) {
-    res.render("error", { message: "Error connecting to MySQL" });
-    console.log("Error connecting to MySQL");
+    res.render("error", { message: "Error adding user" }); // Make sure to update the error message
+    console.log("Error adding user");
     console.log(ex);
   }
 });
