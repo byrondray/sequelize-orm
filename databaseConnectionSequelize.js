@@ -1,27 +1,33 @@
-const MongoClient = require("mongodb").MongoClient;
+const { MongoClient, ServerApiVersion } = require("mongodb");
 const is_qoddi = process.env.IS_QODDI || false;
 const qoddiURI =
   "mongodb+srv://theMongoAdmin:accidentalLoginSteps@cluster0.rnp4igh.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const localURI =
   "mongodb://127.0.0.1/?authSource=admin&retryWrites=true&w=majority";
+
+const clientOptions = {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverApi: ServerApiVersion.v1, // Add this line
+};
+
+var database;
 if (is_qoddi) {
-  var database = new MongoClient(qoddiURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  database = new MongoClient(qoddiURI, clientOptions);
 } else {
-  var database = new MongoClient(localURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  database = new MongoClient(localURI, clientOptions);
 }
 
-database.connect((err) => {
-  if (err) {
-    console.error("Connection error:", err);
-  } else {
-    console.log("Connected to MongoDB");
+// Export the connected client, not just the MongoClient
+async function connect() {
+  try {
+    await database.connect();
+    console.log("Successfully connected to MongoDB.");
+  } catch (error) {
+    console.error("Connection to MongoDB failed:", error);
   }
-});
+}
+
+connect();
 
 module.exports = database;
