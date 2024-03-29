@@ -13,14 +13,26 @@ const router = include("routes/router");
 
 const port = process.env.PORT || 3000;
 
-database.connect((err, dbConnection) => {
-  if (!err) {
-    console.log("Successfully connected to MySQL");
-  } else {
-    console.log("Error Connecting to MongoDB");
-    console.log(err);
+// database.connect((err, dbConnection) => {
+//   if (!err) {
+//     console.log("Successfully connected to MongoDB");
+//   } else {
+//     console.log("Error Connecting to MongoDB");
+//     console.log(err);
+//   }
+// });
+
+async function connectToMongo() {
+  try {
+    await database.connect();
+    console.log("Successfully connected to MongoDB");
+  } catch (ex) {
+    console.log("Error connecting to MongoDB");
+    console.log(ex);
   }
-});
+}
+
+connectToMongo();
 
 const app = express();
 app.set("view engine", "ejs");

@@ -26,14 +26,15 @@ router.get("/", async (req, res) => {
       .project({ first_name: 1, last_name: 1, email: 1, _id: 1 })
       .toArray();
     if (users === null) {
-      res.render("error", { message: "Error connecting to MySQL" });
-      console.log("Error connecting to userModel");
+      res.render("error", {
+        message: "Error connecting to MongoDB on the homepage route",
+      });
     } else {
       console.log(users);
       res.render("index", { allUsers: users });
     }
   } catch (ex) {
-    res.render("error", { message: "Error connecting to MySQL" });
+    res.render("error", { message: "Error connecting to MongoDb o " });
     console.log("Error connecting to MySQL");
     console.log(ex);
   }
