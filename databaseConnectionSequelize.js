@@ -18,16 +18,4 @@ if (is_qoddi) {
   database = new MongoClient(localURI, clientOptions);
 }
 
-// Export the connected client, not just the MongoClient
-async function connect() {
-  try {
-    await database.connect();
-    console.log("Successfully connected to MongoDB.");
-  } catch (error) {
-    console.error("Connection to MongoDB failed:", error);
-  }
-}
-
-connect();
-
 module.exports = database;
