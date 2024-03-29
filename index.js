@@ -13,15 +13,14 @@ const router = include("routes/router");
 
 const port = process.env.PORT || 3000;
 
-// database.getConnection((err, dbConnection) => {
-// 	if (!err) {
-// 		console.log("Successfully connected to MySQL");
-// 	}
-// 	else {
-// 		console.log("Error Connecting to MySQL");
-// 		console.log(err);
-// 	}
-// });
+database.connect((err, dbConnection) => {
+  if (!err) {
+    console.log("Successfully connected to MySQL");
+  } else {
+    console.log("Error Connecting to MongoDB");
+    console.log(err);
+  }
+});
 
 const app = express();
 app.set("view engine", "ejs");
@@ -29,20 +28,6 @@ app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(__dirname + "/public"));
 app.use("/", router);
-
-async function startServer() {
-  try {
-    // Ensure database is connected
-    await database.connect();
-    console.log("Successfully connected to MongoDB.");
-
-    // Now that we're connected, start the server
-    app.listen(port, () => {
-      console.log(`Server listening on port ${port}`);
-    });
-  } catch (error) {
-    console.error("Failed to connect to the database:", error);
-  }
-}
-
-startServer();
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
